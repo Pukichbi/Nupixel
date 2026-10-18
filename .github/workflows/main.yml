@@ -1,4 +1,4 @@
-name: Unzip and Build Android APK
+name: Check Archive Content
 
 on:
   push:
@@ -6,49 +6,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip project archive
+      - name: Unzip and list files
         run: |
-          mkdir -p unzipped_project
-          unzip -o "*.zip" -d unzipped_project
-          
-          # Если внутри ZIP была одна общая папка, перемещаем файлы наружу
-          if [ $(ls -1 unzipped_project | wc -l) -eq 1 ] && [ -d unzipped_project/* ]; then
-            cp -r unzipped_project/*/* .
-          else
-            cp -r unzipped_project/* .
-          fi
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Make gradlew executable
-        run: |
-          find . -name "gradlew" -exec chmod +x {} \;
-
-      - name: Build APK with Gradle
-        run: |
-          # Ищем файл gradlew и запускаем сборку из его папки
-          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
-          if [ -n "$GRADLEW_PATH" ]; then
-            cd $(dirname "$GRADLEW_PATH")
-            ./gradlew assembleDebug
-          else
-            echo "Файл gradlew не найден в ZIP-архиве!"
-            exit 1
-          fi
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: '**/build/outputs/apk/**/*.apk'
+          mkdir -p unzipped
+          unzip -o "*.zip" -d unzipped
+          echo "=== СПИСОК ВСЕХ ФАЙЛОВ В АРХИВЕ ==="
+          find unzipped -maxdepth 3
