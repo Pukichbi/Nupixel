@@ -1,4 +1,4 @@
-name: Build Android APK from Zip
+name: Universal Android APK Builder
 
 on:
   push:
@@ -24,12 +24,27 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build APK with Gradle
+      - name: Auto-find project and Build APK
         run: |
-          # Переходим внутрь распакованной папки проекта nupixel1
-          cd unzipped/nupixel1
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          # Автоматически ищем папку, где лежит settings.gradle или settings.gradle.kts
+          SETTINGS_FILE=$(find unzipped -name "settings.gradle*" | head -n 1)
+          
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "Ошибка: Не найден файл настройки Gradle в архиве!"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          echo "Проект найден в папке: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+
+          # Если gradlew нет, генерируем wrapper или используем системный gradle
+          if [ -f "./gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug
+          else
+            gradle assembleDebug
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
