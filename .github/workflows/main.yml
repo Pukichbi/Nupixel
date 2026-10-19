@@ -1,67 +1,50 @@
+
 name: Build Nupixel APK
 
 on:
-  push:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unpack project zip (if project is not already in the repo root)
-        run: |
-          if [ -f build.gradle.kts ]; then
-            echo "Project already unpacked"
-            echo "PROJECT_DIR=." >> $GITHUB_ENV
-          else
-            ZIP=$(find . -maxdepth 2 -name "Nupixel*.zip" | head -n 1)
-            echo "Found zip: $ZIP"
-            mkdir -p nupixel_src
-            unzip -q "$ZIP" -d nupixel_src
-            if [ -f nupixel_src/build.gradle.kts ]; then
-              echo "PROJECT_DIR=nupixel_src" >> $GITHUB_ENV
-            else
-              SUB=$(dirname "$(find nupixel_src -maxdepth 2 -name build.gradle.kts | head -n 1)")
-              echo "PROJECT_DIR=$SUB" >> $GITHUB_ENV
-            fi
-          fi
-
-      - name: Set up JDK 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: '17'
 
-      - name: Set up Gradle 8.9
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
 
-      - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-
-      - name: Unit tests
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: gradle testDebugUnitTest --stacktrace
+      - name: Grant execute permission
+        run: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+          else
+            echo "ERROR: Gradle wrapper ./gradlew not found"
+            exit 1
+          fi
 
       - name: Build debug APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: gradle assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nupixel-debug-apk
-          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
-
-      - name: Upload test and build reports (on failure)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-reports
-          path: |
-            ${{ env.PROJECT_DIR }}/app/build/reports
-            ${{ env.PROJECT_DIR }}/app/build/test-results
+          name: Nupixel-debug-APK
+          path: '**/build/outputs/apk/**/*.apk'
+          if-no-files-found: error
+          retention-days: 14
